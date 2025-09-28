@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: Garcia
+    given-names: Thomas X.
+    orcid: https://orcid.org/0000-0000-0000-0000
+title: "ONT-fastq-to-ubam: Preserving Oxford Nanopore Metadata in Unmapped BAM Format"
+version: 1.0.0
+date-released: 2025-01-27
+url: "https://github.com/Thomas-X-Garcia/ONT-fastq-to-ubam"
+license: MIT
+keywords:
+  - Oxford Nanopore Technologies
+  - ONT
+  - bioinformatics
+  - BAM
+  - uBAM
+  - sequencing
+  - metadata preservation
+  - nanopore

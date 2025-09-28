@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv
+
+# Test files
+test/
+tests/
+*.fastq
+*.fq
+*.fastq.gz
+*.fq.gz
+*.bam
+*.ubam
+*.sam
+*.cram
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.swp
+*.swo
+*~
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# Documentation builds
+docs/_build/
+*.html
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
