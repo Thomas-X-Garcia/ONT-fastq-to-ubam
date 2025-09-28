@@ -27,7 +27,7 @@ Convert Oxford Nanopore Technologies (ONT) FASTQ files to **unmapped BAM (uBAM)*
 
 ### The Problem with Standard Conversion Tools
 
-Standard FASTQ to BAM conversion tools like `samtools import` lose critical ONT metadata embedded in FASTQ headers. This metadata includes:
+Standard FASTQ to uBAM conversion tools like `samtools import` or `Picard FastqToSam` lose critical ONT metadata embedded in FASTQ headers. This metadata includes:
 - Run identification (`runid`)
 - Channel number (`ch`)
 - Sequencing timestamps (`start_time`)
@@ -43,14 +43,9 @@ This information is essential for:
 
 ### The uBAM Advantage
 
-The unmapped BAM (uBAM) format provides:
-1. **Structured metadata storage** via standardized header sections
-2. **Per-read origin tracking** through custom tags
-3. **Sample identity management** via Read Group (@RG) tags
-4. **Workflow compatibility** with tools expecting BAM input
-5. **Data integrity** through binary format and optional checksums
+Alignment tools such as [minimap2](https://github.com/lh3/minimap2) accept FASTQ files as input and output SAM files with aligned reads through a computationally intense process. These SAM files require further processing with [samtools](https://github.com/samtools/samtools) to convert them to BAM format, which is the required input format for [epi2me-labs/wf-human-variation](https://github.com/epi2me-labs/wf-human-variation). However, [epi2me-labs/wf-human-variation](https://github.com/epi2me-labs/wf-human-variation) performs alignment with [minimap2](https://github.com/lh3/minimap2) regardless of whether the input BAM file is aligned or not. Therefore, the unmapped BAM (uBAM) format provides the most computationally efficient and least redundant path to obtaining a BAM input file for [epi2me-labs/wf-human-variation](https://github.com/epi2me-labs/wf-human-variation).
 
-## Key Features
+## Key Features of ONT-fastq-to-ubam
 
 ✅ **Complete Metadata Preservation**
 - Preserves all ONT FASTQ header information as structured data
@@ -82,7 +77,7 @@ We performed a comprehensive analysis comparing metadata preservation between st
 
 When using `samtools import`, **ALL ONT-specific metadata is lost**:
 - ❌ No @RG (Read Group) header - **breaks workflow compatibility**
-- ❌ No channel information (745+ unique channels lost)
+- ❌ No channel information (~2675 unique channels lost)
 - ❌ No run IDs or flow cell IDs
 - ❌ No timestamps for temporal analysis
 - ❌ No basecaller model information
@@ -110,11 +105,11 @@ This tool successfully preserves **100% of ONT metadata** in two ways:
 
 #### Real-World Impact
 
-In a production dataset with 2 million reads:
+In a whole genome dataset with 4 million reads from one or more flow cells capturing data over time:
 - **samtools import**: 0 metadata fields preserved
-- **ONT-fastq-to-ubam.py**: All metadata preserved across 745+ unique channels
-- **Critical @RG tag**: Present in our output, absent in samtools import
-- **Downstream compatibility**: This tool's output works with wf-human-variation, samtools import output doesn't
+- **ONT-fastq-to-ubam.py**: All metadata preserved across ~2675 unique nanopore channels
+- **Critical @RG tag**: Present with ONT-fastq-to-ubam, absent in samtools import
+- **Downstream compatibility**: With the metadata preserved, this tool's BAM output can automatically pass the basecaller model (e.g., `dna_r10.4.1_e8.2_400bps_sup@v4.3.0`) to the SNV caller [Clair3](https://github.com/HKU-BAL/Clair3) in the wf-human-variation pipeline. While BAM files created through samtools import can be used as input for the wf-human-variation pipeline, these BAM files lacking metadata do not pass the basecaller model to Clair3. The user to pass this information through `--clair3_model_path`, which may be inaccurate if the flag is hardcoded in a script or erroneously entered. Providing the incorrect basecaller model can result in poor SNV calling without the user's knowledge, jeopardizing the accuracy of the results. In clinical applications, accuracy and precision are of paramount importance.
 
 This metadata enables:
 - Channel-specific QC and artifact detection
@@ -237,7 +232,7 @@ The `ONT-fastq-to-ubam_shard_wrapper.sh` script:
 - **Up to 20x+ speedup** on multi-core systems
 - **Zero metadata loss** - identical output to serial processing
 - **Memory efficient** - processes shards independently
-- **Order preservation** - maintains original read sequence
+- **Order preservation** - maintains read order in final output
 - **Smart decompression** - uses `pigz` for parallel gzip handling when available
 - **Excellent scaling** - tested successfully with 20+ threads
 
@@ -318,7 +313,7 @@ samtools cat → Final merged uBAM (identical to serial output)
 
 ### Validation
 
-The parallel output is **byte-for-byte identical** to the serial output in terms of:
+The parallel output preserves all the same information as the serial output:
 - All metadata tags (XR, XH, XT, XF, XG, XP, XQ, XI, XV)
 - JSON blobs (OX:Z)
 - Read order
@@ -344,8 +339,7 @@ sudo apt-get install samtools
 ```
 
 **Issue: Script seems slower than expected**
-- Check if input file is on network storage (move to local disk)
-- Verify you have enough free memory for parallel processing
+- Check if input file is on network storage (move to local disk; see [compress_fastq_network](https://github.com/Thomas-X-Garcia/compress_fastq_network) `--file-type` for data integrity considerations when moving large files across the network!)
 - Ensure temp directory (`/tmp`) has sufficient space
 
 **Issue: Output file order seems different**
@@ -551,10 +545,10 @@ Using the shard wrapper dramatically improves speed:
 
 ### Expected Speedup
 
-The parallel wrapper shows near-linear scaling:
-- 8 cores: approximately 8x faster
-- 16 cores: approximately 14-16x faster
-- 20 cores: approximately 18-20x faster
+The parallel wrapper typically shows near-linear scaling:
+- 8 cores: up to 8x faster
+- 16 cores: up to 14-16x faster
+- 20 cores: up to 18-20x faster
 - Minimal memory overhead per worker (<100MB each)
 
 ### Tips for Optimal Performance
@@ -606,7 +600,7 @@ mv output.ubam output.ubam.backup
 
 #### Performance Issues
 **Solutions:**
-1. Ensure input is compressed: `.fastq.gz` processes faster than `.fastq`
+1. Use the parallel wrapper for large files (see Parallel Processing section)
 2. Check disk I/O: Use local SSD if possible
 3. Monitor system resources: `top` or `htop`
 
